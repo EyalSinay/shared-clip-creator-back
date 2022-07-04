@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const Project = require('../models/projectModel.js');
 const { uploadAudio, uploadVideo } = require('../middleware/uploads.js');
 const { uploadToS3, downloadFromS3, deleteFileFromS3 } = require('../utils/s3.js');
+const { getConcatVideo, removeAllAtomsFiles } = require('../utils/get-concat-video.js');
 const router = new express.Router();
 
 
@@ -118,6 +119,27 @@ router.get('/users/projects/:id/audioTrack', auth, async (req, res) => {
     }
 });
 
+router.get('/users/projects/:id/concatVideo', auth, async (req, res) => {
+    const _id = req.params.id;
+    try {
+        const project = await Project.findOne({ _id, owner: req.user._id });
+        if (!project) {
+            return res.status(404).send()
+        }
+        const userAudioTrack = downloadFromS3(project.audioTrack);
+        const videos = [];
+        for (let sec of project.sections) {
+            const sectionVideoTrack = downloadFromS3(sec.videoTrack);
+            videos.push(sectionVideoTrack);
+        }
+        const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, videos, project.allowed, project._id);
+
+        clipStream.pipe(res).on('finish', () => removeAllAtomsFiles(allPaths));
+    } catch (e) {
+        res.status(500).send();
+    }
+});
+
 router.get('/users/projects/:id/sections/:sec', auth, async (req, res) => {
     const _id = req.params.id;
     try {
@@ -166,7 +188,7 @@ router.get('/users/projects/:id/sections/:sec/videoTrack', auth, async (req, res
 // -----PATCH:-----
 router.patch('/users/projects/:id', auth, async (req, res) => {
     const updates = Object.keys(req.body);
-    const allowedUpdates = ['projectName', 'sections'];
+    const allowedUpdates = ['projectName', 'sections', 'allowed'];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
     if (!isValidOperation) {
         return res.status(400).send({ error: 'Invalid updates!' })
@@ -191,37 +213,36 @@ router.patch('/users/projects/:id', auth, async (req, res) => {
 router.patch('/users/projects/:id/sections/:sec', auth, uploadVideo.single('videoTrack'), async (req, res) => {
     const _id = req.params.id;
     const file = req.file;
-    try {
-        const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
-        if (!project) {
+
+    const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
+    if (!project) {
+        fs.unlinkSync(file.path);
+        return res.status(404).send();
+    }
+    const section = project.sections.find(mySec => mySec._id.toString() === req.params.sec);
+
+    if (section.secure) {
+        if (req.user.email !== section.targetEmail) {
             fs.unlinkSync(file.path);
             return res.status(404).send();
         }
-        const section = project.sections.find(mySec => mySec._id.toString() === req.params.sec);
-
-        if (section.secure) {
-            if (req.user.email !== section.targetEmail) {
-                fs.unlinkSync(file.path);
-                return res.status(404).send();
-            }
-        }
-
-        if (section.videoTrack) {
-            const deleteVideoTrackResults = await deleteFileFromS3(section.videoTrack);
-            console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
-        }
-
-        // manipulate the file here...
-        // if not, use: multer-s3
-        const uploadResult = await uploadToS3(file);
-        section.videoTrack = uploadResult.Key;
-        await project.save();
-        fs.unlinkSync(file.path);
-
-        res.send('success');
-    } catch (e) {
-        res.status(500).send();
     }
+
+    if (section.videoTrack) {
+        const deleteVideoTrackResults = await deleteFileFromS3(section.videoTrack);
+        console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
+    }
+
+    // manipulate the file here...
+    // if not, use: multer-s3
+    const uploadResult = await uploadToS3(file);
+    section.videoTrack = uploadResult.Key;
+    await project.save();
+    fs.unlinkSync(file.path);
+
+    res.send('success');
+}, (error, req, res, next) => {
+    res.status(400).send({ error: error.message });
 });
 
 

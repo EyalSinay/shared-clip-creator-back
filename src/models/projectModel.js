@@ -30,6 +30,8 @@ const Section = new mongoose.Schema({
     message: String,
     videoTrack: String,
 });
+//! validate: secondEnd > secondStart
+//! pre('save'): sort array by seconds
 
 const projectSchema = new mongoose.Schema({
     projectName: {
@@ -43,7 +45,8 @@ const projectSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'User'
-    }
+    },
+    allowed: Boolean
 });
 
 Section.methods.toJSON = function () {
@@ -57,6 +60,7 @@ projectSchema.methods.toJSON = function () {
     const project = this;
     const projectObject = project.toObject();
     delete projectObject.audioTrack;
+    //! delete videosTracks
     return projectObject;
 }
 
