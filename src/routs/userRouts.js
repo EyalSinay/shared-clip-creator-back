@@ -6,13 +6,13 @@ const router = new express.Router();
 // -----POST:-----
 router.post('/users/signup', async (req, res) => {
     const user = new User({
-        name: req.body.params.name,
-        email: req.body.params.email,
-        password: req.body.params.password
+        name: req.body.name,
+        email: req.body.email,
+        password: req.body.password
     });
     try {
         await user.save();
-        if (req.body.params.rememberMe) {
+        if (req.body.rememberMe) {
             const token = await user.generateAuthToken();
             res.status(201).send({ user, token });
         } else {
@@ -25,9 +25,14 @@ router.post('/users/signup', async (req, res) => {
 
 router.post('/users/signin', async (req, res) => {
     try {
-        const user = await User.findByCredentials(req.body.email, req.body.password)
-        const token = await user.generateAuthToken()
-        res.send({ user, token })
+        const user = await User.findByCredentials(req.body.email, req.body.password);
+        // console.log(user)
+        if (req.body.rememberMe) {
+            const token = await user.generateAuthToken();
+            res.send({ user, token });
+        } else {
+            res.send({ user });
+        }
     } catch (e) {
         res.status(400).send(e);
     }
