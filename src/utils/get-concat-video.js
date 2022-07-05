@@ -6,6 +6,7 @@ const getConcatVideo = async (audio, videosArr, allowed, projectId) => {
     allPromises = [];
     videosPaths = [];
     for (let i = 0; i < videosArr.length; i++) {
+        // ! if no video, create empty
         const videoPath = __dirname + `/files/${projectId}-video-${i}.mp4`;
         videosPaths.push(videoPath);
         const videoWritableStream = fs.createWriteStream(videoPath);

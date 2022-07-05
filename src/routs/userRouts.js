@@ -5,11 +5,19 @@ const router = new express.Router();
 
 // -----POST:-----
 router.post('/users/signup', async (req, res) => {
-    const user = new User(req.body);
+    const user = new User({
+        name: req.body.params.name,
+        email: req.body.params.email,
+        password: req.body.params.password
+    });
     try {
         await user.save();
-        const token = await user.generateAuthToken();
-        res.status(201).send({ user, token });
+        if (req.body.params.rememberMe) {
+            const token = await user.generateAuthToken();
+            res.status(201).send({ user, token });
+        } else {
+            res.status(201).send({ user });
+        }
     } catch (e) {
         res.status(400).send(e);
     }

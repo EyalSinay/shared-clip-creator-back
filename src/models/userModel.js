@@ -33,7 +33,8 @@ const userSchema = new mongoose.Schema({
             type: String,
             required: true
         }
-    }]
+    }],
+    lastPage: String
 });
 
 userSchema.virtual('projects', {
