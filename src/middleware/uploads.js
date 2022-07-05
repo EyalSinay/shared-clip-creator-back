@@ -7,7 +7,7 @@ const uploadAudio = multer({
     },
     fileFilter(req, file, cb) {
         if (!file.originalname.endsWith('.mp3')) {
-            return cb(new Error('Only mp3 please'));
+            return cb(new Error('File types are accepted: mp3'));
         }
         cb(undefined, true)
     }
@@ -19,8 +19,12 @@ const uploadVideo = multer({
         fileSize: 50000000
     },
     fileFilter(req, file, cb) {
-        if (!file.originalname.endsWith('.mp4')) {
-            return cb(new Error('Only mp4 please'));
+        if (!file.originalname.endsWith('.mp4')
+            &&
+            !file.originalname.endsWith('.jpg')
+            &&
+            !file.originalname.endsWith('.jpeg')) {
+            return cb(new Error('File types are accepted: mp4, jpg, jpeg'));
         }
         cb(undefined, true)
     }

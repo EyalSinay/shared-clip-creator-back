@@ -210,7 +210,7 @@ router.patch('/users/projects/:id', auth, async (req, res) => {
 });
 
 
-router.patch('/users/projects/:id/sections/:sec', auth, uploadVideo.single('videoTrack'), async (req, res) => {
+router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.single('videoTrack'), async (req, res) => {
     const _id = req.params.id;
     const file = req.file;
 
@@ -233,8 +233,10 @@ router.patch('/users/projects/:id/sections/:sec', auth, uploadVideo.single('vide
         console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
     }
 
-    // manipulate the file here...
-    // if not, use: multer-s3
+    
+    //! go to function that Shortens or lengthens the video by the seconds
+    //? Is it right to change video files to the desired length here as well? Can create order but not economical in the cloud
+
     const uploadResult = await uploadToS3(file);
     section.videoTrack = uploadResult.Key;
     await project.save();
