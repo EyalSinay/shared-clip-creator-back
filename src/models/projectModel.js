@@ -60,7 +60,9 @@ projectSchema.methods.toJSON = function () {
     const project = this;
     const projectObject = project.toObject();
     delete projectObject.audioTrack;
-    //! delete videosTracks
+    for (const sec of projectObject.sections){
+        delete sec.videoTrack;
+    }
     return projectObject;
 }
 
