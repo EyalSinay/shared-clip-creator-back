@@ -64,7 +64,8 @@ router.post('/users/signoutAll', auth, async (req, res) => {
 
 // -----GET:-----
 router.get('/users/user', auth, async (req, res) => {
-    res.send(req.user);
+    const user = await req.user.populate('projects');
+    res.send({_id: user._id, name: user.name, email: user.email, projects: user.projects});
 });
 
 

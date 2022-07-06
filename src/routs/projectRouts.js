@@ -10,13 +10,13 @@ const router = new express.Router();
 
 // -----POST:-----
 router.post('/users/projects', auth, async (req, res) => {
-    const task = new Project({
+    const project = new Project({
         ...req.body,
         owner: req.user._id
     });
     try {
-        await task.save();
-        res.status(201).send(task);
+        await project.save();
+        res.status(201).send(project);
     } catch (e) {
         res.status(400).send(e);
     }
