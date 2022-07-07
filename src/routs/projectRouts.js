@@ -1,10 +1,13 @@
 const express = require('express');
 const fs = require('fs');
+var mongoose = require('mongoose');
 const auth = require('../middleware/auth');
 const Project = require('../models/projectModel.js');
+const { BASE_URL_FRONT } = require('../utils/global-vars.js')
 const { uploadAudio, uploadVideo } = require('../middleware/uploads.js');
 const { uploadToS3, downloadFromS3, deleteFileFromS3 } = require('../utils/s3.js');
 const { getConcatVideo, removeAllAtomsFiles } = require('../utils/get-concat-video.js');
+const User = require('../models/userModel');
 const router = new express.Router();
 
 
@@ -13,7 +16,7 @@ router.post('/users/projects', auth, async (req, res) => {
     const project = new Project({
         ...req.body,
         owner: req.user._id,
-        sections: [{}],
+        sections: [],
         createdAt: new Date(),
     });
     try {
@@ -50,7 +53,6 @@ router.post('/users/projects/:id/audioTrack', auth, uploadAudio.single('audioTra
 
 router.post('/users/projects/:id/sections', auth, async (req, res) => {
     const _id = req.params.id;
-
     try {
         const project = await Project.findOne({ _id, owner: req.user._id });
         if (!project) {
@@ -58,18 +60,40 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         }
 
         for (let i = 0; i < project.sections.length; i++) {
-            if (!req.body.some(newSec => newSec.secName === project.sections[i].secName)) {
-                await project.sections[i].remove();
+            const secId = project.sections[i]._id;
+
+            const userPar = await User.findOne({ 'projectsParticipant.sectionId': secId });
+            if (userPar) {
+                const idx = userPar.projectsParticipant.findIndex(par => par.sectionId === secId.toString());
+                if(idx > -1){
+                    userPar.projectsParticipant.splice(idx, 1);
+                    await userPar.save();
+                }
             }
         }
 
-        const newSections = req.body.map(sec => {
-            const existSec = project.sections.find(exSec => exSec.secName === sec.secName);
-            if (existSec) {
-                return { ...sec, _id: existSec._id };
-            }
-            return sec;
-        });
+        for (let i = 0; i < project.sections.length; i++) {
+            await project.sections[i].remove();
+        }
+
+        const newSections = [];
+        for(let sec of req.body){
+            const secId = new mongoose.Types.ObjectId();
+            const targetEmail = sec.targetEmail;
+
+            const userPar = await User.findOne({ email: targetEmail });
+            
+            userPar.projectsParticipant = userPar.projectsParticipant === undefined ? [] : userPar.projectsParticipant;
+            userPar.projectsParticipant.push({
+                projectName: project.projectName,
+                link: BASE_URL_FRONT + "project/" + project._id + "/" + secId,
+                sectionId: secId
+            });
+            userPar.save();
+
+            newSections.push({...sec, _id: secId});
+        }
+
         project.sections = newSections;
         await project.save();
 

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 const { deleteFileFromS3 } = require('../utils/s3.js');
+const User = require('./userModel.js');
 
 
 const Section = new mongoose.Schema({
@@ -26,6 +27,7 @@ const Section = new mongoose.Schema({
     },
     secure: { type: Boolean, default: false },
     allowedWatch: { type: Boolean, default: false },
+    secLink: String,
     secondStart: { type: Number, required: true, default: 0 },
     secondEnd: { type: Number, required: true, default: 0 },
     vars: [{}],
@@ -79,13 +81,13 @@ projectSchema.pre('validate', async function (next) {
         }
     }
 
-    if(project.__v === undefined){
+    if (project.__v === undefined) {
         const allProjectsByThisOwner = await Project.find({ owner: project.owner });
         if (allProjectsByThisOwner.some(projectByThisOwner => projectByThisOwner.projectName === project.projectName)) {
             next(new Error('projectName must be unique'));
         }
     }
-    
+
     next();
 });
 
@@ -104,11 +106,11 @@ Section.pre('save', function (next) {
 projectSchema.pre('validate', function (next) {
     const sections = this.sections;
 
-    sections.reduce((pre, current) => {
-        if (pre.secondEnd > current.secondStart) {
+    for (let i = 1; i < sections.length; i++) {
+        if (sections[i - 1].secondEnd > sections[i].secondStart) {
             next(new Error('pre.secondEnd > current.secondStart'));
         }
-    });
+    }
 
     sections.forEach(sec => {
         if (sec.secondEnd < sec.secondStart) {
@@ -125,6 +127,7 @@ Section.pre('remove', async function (next) {
         const deleteVideoTrackResults = await deleteFileFromS3(section.videoTrack);
         console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
     }
+
     next();
 });
 

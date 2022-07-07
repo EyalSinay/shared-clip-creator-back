@@ -1,16 +1,42 @@
 const express = require('express');
 const User = require('../models/userModel.js');
 const auth = require('../middleware/auth.js');
+const Project = require('../models/projectModel.js');
+const { BASE_URL_FRONT } = require('../utils/global-vars.js');
 const router = new express.Router();
 
 // -----POST:-----
 router.post('/users/signup', async (req, res) => {
+    const participantInProjects = await Project.find({ 'sections.targetEmail': req.body.email });
+    const projectsParticipantRrr = [];
+    participantInProjects.forEach(project => {
+        project.sections.forEach(sec => {
+            if (sec.targetEmail === req.body.email) {
+                projectsParticipantRrr.push({
+                    projectName: project.projectName,
+                    link: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
+                    sectionId: sec._id
+                });
+            }
+        });
+    });
+
+    // const projectsParticipantRrr = participantInProjects.map(project => {
+    // return {
+    //     projectName: project.projectName,
+    //     link: BASE_URL_FRONT + "project/" + project._id + "/" + project.sections.find(sec => sec.targetEmail === req.body.email)._id,
+    //     sectionId: project.sections.find(sec => sec.targetEmail === req.body.email)._id
+    // }
+    // });
+
     const user = new User({
         name: req.body.name,
         email: req.body.email,
         password: req.body.password,
+        projectsParticipant: projectsParticipantRrr,
         createdAt: new Date()
     });
+
     try {
         await user.save();
         if (req.body.rememberMe) {
@@ -65,7 +91,7 @@ router.post('/users/signoutAll', auth, async (req, res) => {
 // -----GET:-----
 router.get('/users/user', auth, async (req, res) => {
     const user = await req.user.populate('projects');
-    res.send({_id: user._id, name: user.name, email: user.email, projects: user.projects});
+    res.send({ _id: user._id, name: user.name, email: user.email, projects: user.projects });
 });
 
 
