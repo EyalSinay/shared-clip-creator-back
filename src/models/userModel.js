@@ -34,7 +34,8 @@ const userSchema = new mongoose.Schema({
             required: true
         }
     }],
-    lastPage: String
+    createdAt: {type: Date, required: true},
+    lastActiveAt: Date,
 });
 
 userSchema.virtual('projects', {
@@ -72,6 +73,11 @@ userSchema.statics.findByCredentials = async (email, password) => {
     return user;
 }
 
+userSchema.pre('save', function (next) {
+    const user = this;
+    user.lastActiveAt = new Date();
+    next();
+});
 
 userSchema.pre('save', async function (next) {
     const user = this;

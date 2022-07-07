@@ -12,13 +12,15 @@ const router = new express.Router();
 router.post('/users/projects', auth, async (req, res) => {
     const project = new Project({
         ...req.body,
-        owner: req.user._id
+        owner: req.user._id,
+        sections: [{}],
+        createdAt: new Date(),
     });
     try {
         await project.save();
         res.status(201).send(project);
-    } catch (e) {
-        res.status(400).send(e);
+    } catch (error) {
+        res.status(400).send({ error: error.message });
     }
 });
 
@@ -48,37 +50,33 @@ router.post('/users/projects/:id/audioTrack', auth, uploadAudio.single('audioTra
 
 router.post('/users/projects/:id/sections', auth, async (req, res) => {
     const _id = req.params.id;
-    const project = await Project.findOne({ _id, owner: req.user._id });
-    if (!project) {
-        throw new Error('error');
-    }
 
-    const sorted_arr = req.body.map(sec => sec.secName).sort();
-    for (let i = 1; i < sorted_arr.length; i++) {
-        if (sorted_arr[i] === sorted_arr[i - 1]) {
-            throw new Error('secName must be unique');
+    try {
+        const project = await Project.findOne({ _id, owner: req.user._id });
+        if (!project) {
+            throw new Error('error');
         }
-    }
 
-    for (let i = 0; i < project.sections.length; i++) {
-        if (!req.body.some(newSec => newSec.secName === project.sections[i].secName)) {
-            await project.sections[i].remove();
+        for (let i = 0; i < project.sections.length; i++) {
+            if (!req.body.some(newSec => newSec.secName === project.sections[i].secName)) {
+                await project.sections[i].remove();
+            }
         }
+
+        const newSections = req.body.map(sec => {
+            const existSec = project.sections.find(exSec => exSec.secName === sec.secName);
+            if (existSec) {
+                return { ...sec, _id: existSec._id };
+            }
+            return sec;
+        });
+        project.sections = newSections;
+        await project.save();
+
+        res.send(project.sections);
+    } catch (err) {
+        res.status(400).send({ error: err.message });
     }
-
-    const newSections = req.body.map(sec => {
-        const existSec = project.sections.find(exSec => exSec.secName === sec.secName);
-        if (existSec) {
-            return { ...sec, _id: existSec._id };
-        }
-        return sec;
-    });
-    project.sections = newSections;
-    await project.save();
-
-    res.send(project.sections);
-}, (error, req, res, next) => {
-    res.status(400).send({ error: error.message });
 });
 
 
@@ -233,9 +231,8 @@ router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.s
         console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
     }
 
-    
-    //! go to function that Shortens or lengthens the video by the seconds
-    //? Is it right to change video files to the desired length here as well? Can create order but not economical in the cloud
+
+    //! if to long, go to function that Shortens the video by the seconds
 
     const uploadResult = await uploadToS3(file);
     section.videoTrack = uploadResult.Key;

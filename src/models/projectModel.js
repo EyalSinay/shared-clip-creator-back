@@ -4,7 +4,7 @@ const { deleteFileFromS3 } = require('../utils/s3.js');
 
 
 const Section = new mongoose.Schema({
-    secName: { type: String, unique: true, required: true },
+    secName: { type: String, required: true, default: "sec" }, // unique only for this project (pre('validate'))
     targetName: String,
     targetEmail: {
         type: String,
@@ -24,20 +24,19 @@ const Section = new mongoose.Schema({
             }
         }
     },
-    secure: Boolean,
-    secondStart: { type: Number, required: true },
-    secondEnd: { type: Number, required: true },
-    message: String,
+    secure: { type: Boolean, default: false },
+    allowedWatch: { type: Boolean, default: false },
+    secondStart: { type: Number, required: true, default: 0 },
+    secondEnd: { type: Number, required: true, default: 0 },
+    vars: [{}],
     videoTrack: String,
+    lastActiveAt: Date,
 });
-//! validate: secondEnd > secondStart
-//! pre('save'): sort array by seconds
 
 const projectSchema = new mongoose.Schema({
-    projectName: {
+    projectName: { // unique only for this owner (pre('validate'))
         type: String,
         required: true,
-        unique: true,
     },
     audioTrack: String,
     sections: [Section],
@@ -46,7 +45,10 @@ const projectSchema = new mongoose.Schema({
         required: true,
         ref: 'User'
     },
-    allowed: Boolean
+    massage: String,
+    allowed: Boolean,
+    createdAt: { type: Date, required: true },
+    lastActiveAt: Date,
 });
 
 Section.methods.toJSON = function () {
@@ -60,11 +62,62 @@ projectSchema.methods.toJSON = function () {
     const project = this;
     const projectObject = project.toObject();
     delete projectObject.audioTrack;
-    for (const sec of projectObject.sections){
+    for (const sec of projectObject.sections) {
         delete sec.videoTrack;
     }
     return projectObject;
 }
+
+// unique name to section in project
+projectSchema.pre('validate', async function (next) {
+    const project = this;
+
+    const sorted_arr = project.sections.map(sec => sec.secName).sort();
+    for (let i = 1; i < sorted_arr.length; i++) {
+        if (sorted_arr[i] === sorted_arr[i - 1]) {
+            next(new Error('secName must be unique'));
+        }
+    }
+
+    if(project.__v === undefined){
+        const allProjectsByThisOwner = await Project.find({ owner: project.owner });
+        if (allProjectsByThisOwner.some(projectByThisOwner => projectByThisOwner.projectName === project.projectName)) {
+            next(new Error('projectName must be unique'));
+        }
+    }
+    
+    next();
+});
+
+projectSchema.pre('save', function (next) {
+    const project = this;
+    project.lastActiveAt = new Date();
+    next();
+});
+
+Section.pre('save', function (next) {
+    const Section = this;
+    Section.lastActiveAt = new Date();
+    next();
+});
+
+projectSchema.pre('validate', function (next) {
+    const sections = this.sections;
+
+    sections.reduce((pre, current) => {
+        if (pre.secondEnd > current.secondStart) {
+            next(new Error('pre.secondEnd > current.secondStart'));
+        }
+    });
+
+    sections.forEach(sec => {
+        if (sec.secondEnd < sec.secondStart) {
+            next(new Error('sec.secondEnd < sec.secondStart'));
+        }
+    });
+
+    next();
+});
 
 Section.pre('remove', async function (next) {
     const section = this;

@@ -8,7 +8,8 @@ router.post('/users/signup', async (req, res) => {
     const user = new User({
         name: req.body.name,
         email: req.body.email,
-        password: req.body.password
+        password: req.body.password,
+        createdAt: new Date()
     });
     try {
         await user.save();
@@ -26,7 +27,6 @@ router.post('/users/signup', async (req, res) => {
 router.post('/users/signin', async (req, res) => {
     try {
         const user = await User.findByCredentials(req.body.email, req.body.password);
-        // console.log(user)
         if (req.body.rememberMe) {
             const token = await user.generateAuthToken();
             res.send({ user, token });
