@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
             required: true
         }
     }],
-    createdAt: {type: Date, required: true},
+    createdAt: { type: Date, required: true },
     lastActiveAt: Date,
 });
 
@@ -55,7 +55,7 @@ userSchema.methods.toJSON = function () {
 userSchema.methods.generateAuthToken = async function () {
     const user = this;
     const token = jwt.sign({ _id: user._id.toString() }, 'mynameiseyal');
-    //! allow 5 tokens, delete the older.
+    if (user.tokens.length > 5) user.tokens.shift();
     user.tokens = user.tokens.concat({ token });
     await user.save();
     return token;
