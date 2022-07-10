@@ -59,43 +59,65 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
             throw new Error('error');
         }
 
-        for (let i = 0; i < project.sections.length; i++) {
-            const secId = project.sections[i]._id;
 
-            const userPar = await User.findOne({ 'projectsParticipant.sectionId': secId });
-            if (userPar) {
-                const idx = userPar.projectsParticipant.findIndex(par => par.sectionId === secId.toString());
-                if(idx > -1){
-                    userPar.projectsParticipant.splice(idx, 1);
-                    await userPar.save();
+        const idsDoseNotChanged = []
+        for (let i = 0; i < req.body.length; i++) {
+            for (let j = 0; j < project.sections.length; j++) {
+                if (
+                    req.body[i].targetEmail === project.sections[j].targetEmail
+                    &&
+                    req.body[i].secondStart === project.sections[j].secondStart
+                    &&
+                    req.body[i].secondEnd === project.sections[j].secondEnd) {
+                    req.body[i]._id = project.sections[j]._id;
+                    idsDoseNotChanged.push(project.sections[j]._id);
+                }
+            }
+        }
+        for (let sec of req.body) {
+            sec._id = sec._id ? sec._id : new mongoose.Types.ObjectId();
+        }
+
+        const preSections = [...project.sections];
+        project.sections = req.body;
+        await project.save();
+
+
+        for (let i = 0; i < preSections.length; i++) {
+            const secId = preSections[i]._id;
+
+            if (!idsDoseNotChanged.some(id => id === secId)) {
+                await User.findOneAndUpdate({ 'projectsParticipant.sectionId': secId }, {
+                    $pull: {
+                        projectsParticipant: {
+                            sectionId: secId
+                        }
+                    }
+                });
+
+                if (preSections[i].videoTrack) {
+                    deleteFileFromS3(preSections[i].videoTrack)
+                    console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
                 }
             }
         }
 
-        for (let i = 0; i < project.sections.length; i++) {
-            await project.sections[i].remove();
+
+        for (let sec of req.body) {
+            const secId = sec._id;
+
+            if (!idsDoseNotChanged.some(id => id === secId)) {
+                await User.findOneAndUpdate({ email: sec.targetEmail }, {
+                    $push: {
+                        projectsParticipant: {
+                            projectName: project.projectName,
+                            link: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
+                            sectionId: sec._id
+                        }
+                    }
+                });
+            }
         }
-
-        const newSections = [];
-        for(let sec of req.body){
-            const secId = new mongoose.Types.ObjectId();
-            const targetEmail = sec.targetEmail;
-
-            const userPar = await User.findOne({ email: targetEmail });
-            
-            userPar.projectsParticipant = userPar.projectsParticipant === undefined ? [] : userPar.projectsParticipant;
-            userPar.projectsParticipant.push({
-                projectName: project.projectName,
-                link: BASE_URL_FRONT + "project/" + project._id + "/" + secId,
-                sectionId: secId
-            });
-            userPar.save();
-
-            newSections.push({...sec, _id: secId});
-        }
-
-        project.sections = newSections;
-        await project.save();
 
         res.send(project.sections);
     } catch (err) {

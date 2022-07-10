@@ -5,7 +5,7 @@ const User = require('./userModel.js');
 
 
 const Section = new mongoose.Schema({
-    secName: { type: String, required: true, default: "sec" }, // unique only for this project (pre('validate'))
+    secName: { type: String, default: "sec" }, // unique only for this project (pre('validate'))
     targetName: String,
     targetEmail: {
         type: String,
