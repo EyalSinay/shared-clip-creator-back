@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 const { deleteFileFromS3 } = require('../utils/s3.js');
-const User = require('./userModel.js');
+// const User = require('./userModel.js');
 
-
+//! ref participant to project  
 const Section = new mongoose.Schema({
     secName: { type: String, default: "sec" }, // unique only for this project (pre('validate'))
     targetName: String,
@@ -30,7 +30,10 @@ const Section = new mongoose.Schema({
     secLink: String,
     secondStart: { type: Number, required: true, default: 0 },
     secondEnd: { type: Number, required: true, default: 0 },
-    vars: [{}],
+    link: String,
+    seenByOwner: {type: Boolean, default: true},
+    seenByParticipant: {type: Boolean, default: true},
+    vars: [{key: String, value: String}],
     videoTrack: String,
     lastActiveAt: Date,
 });

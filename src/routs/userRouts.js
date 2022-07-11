@@ -9,25 +9,20 @@ const router = new express.Router();
 router.post('/users/signup', async (req, res) => {
     const participantInProjects = await Project.find({ 'sections.targetEmail': req.body.email });
     const projectsParticipantRrr = [];
-    participantInProjects.forEach(project => {
-        project.sections.forEach(sec => {
+    for (let project of participantInProjects) {
+        for (let sec of project.sections) {
             if (sec.targetEmail === req.body.email) {
+                const projectOwner = await project.populate('owner');
                 projectsParticipantRrr.push({
                     projectName: project.projectName,
-                    link: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
+                    projectOwnerName: projectOwner.owner.name,
+                    fullLink: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
+                    link: "/" + "project/" + project._id + "/" + sec._id,
                     sectionId: sec._id
                 });
             }
-        });
-    });
-
-    // const projectsParticipantRrr = participantInProjects.map(project => {
-    // return {
-    //     projectName: project.projectName,
-    //     link: BASE_URL_FRONT + "project/" + project._id + "/" + project.sections.find(sec => sec.targetEmail === req.body.email)._id,
-    //     sectionId: project.sections.find(sec => sec.targetEmail === req.body.email)._id
-    // }
-    // });
+        };
+    };
 
     const user = new User({
         name: req.body.name,
@@ -39,12 +34,10 @@ router.post('/users/signup', async (req, res) => {
 
     try {
         await user.save();
-        if (req.body.rememberMe) {
-            const token = await user.generateAuthToken();
-            res.status(201).send({ user, token });
-        } else {
-            res.status(201).send({ user });
-        }
+
+        const token = await user.generateAuthToken();
+        res.status(201).send({ user, token });
+
     } catch (e) {
         res.status(400).send(e);
     }
@@ -53,12 +46,11 @@ router.post('/users/signup', async (req, res) => {
 router.post('/users/signin', async (req, res) => {
     try {
         const user = await User.findByCredentials(req.body.email, req.body.password);
-        if (req.body.rememberMe) {
-            const token = await user.generateAuthToken();
-            res.send({ user, token });
-        } else {
-            res.send({ user });
-        }
+
+        const token = await user.generateAuthToken();
+        await user.populate('projects');
+        res.send({ user, token, projects: user.projects });
+
     } catch (e) {
         res.status(400).send(e);
     }
@@ -91,7 +83,7 @@ router.post('/users/signoutAll', auth, async (req, res) => {
 // -----GET:-----
 router.get('/users/user', auth, async (req, res) => {
     const user = await req.user.populate('projects');
-    res.send({ _id: user._id, name: user.name, email: user.email, projects: user.projects });
+    res.send({ user, projects: user.projects });
 });
 
 

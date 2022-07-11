@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
             required: true
         }
     }],
-    projectsParticipant: [{projectName: String, link: String, sectionId: String}],
+    projectsParticipant: [{ projectName: String, projectOwnerName: String, link: String, sectionId: String }],
     createdAt: { type: Date, required: true },
     lastActiveAt: Date,
 });

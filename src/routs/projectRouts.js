@@ -107,11 +107,14 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
             const secId = sec._id;
 
             if (!idsDoseNotChanged.some(id => id === secId)) {
+                const projectOwner = await project.populate('owner');
                 await User.findOneAndUpdate({ email: sec.targetEmail }, {
                     $push: {
                         projectsParticipant: {
                             projectName: project.projectName,
-                            link: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
+                            projectOwnerName: projectOwner.owner.name,
+                            fullLink: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
+                            link: "/" + "project/" + project._id + "/" + sec._id,
                             sectionId: sec._id
                         }
                     }
@@ -149,14 +152,16 @@ router.get('/users/projects/:id', auth, async (req, res) => {
     }
 });
 
-router.get('/users/projects/:id/audioTrack', auth, async (req, res) => {
+// ! check how to get it in front with token
+router.get('/users/projects/:id/audioTrack', async (req, res) => {
     const _id = req.params.id;
     try {
-        const project = await Project.findOne({ _id, owner: req.user._id });
+        const project = await Project.findOne({ _id });
         if (!project) {
-            return res.status(404).send()
+            return res.status(404).send();
         }
         const userAudioTrack = downloadFromS3(project.audioTrack);
+        res.set('Content-Type', 'audio/mpeg')
         userAudioTrack.pipe(res);
     } catch (e) {
         res.status(500).send();
