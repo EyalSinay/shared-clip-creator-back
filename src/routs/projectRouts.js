@@ -59,7 +59,6 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
             throw new Error('error');
         }
 
-
         const idsDoseNotChanged = []
         for (let i = 0; i < req.body.length; i++) {
             for (let j = 0; j < project.sections.length; j++) {
@@ -77,6 +76,11 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         for (let sec of req.body) {
             sec._id = sec._id ? sec._id : new mongoose.Types.ObjectId();
         }
+
+        req.body.forEach(sec => {
+            sec.secLink = "/" + "project/" + project._id + "/" + sec._id;
+            sec.fullLink = BASE_URL_FRONT + "project/" + project._id + "/" + sec._id;
+        });
 
         const preSections = [...project.sections];
         project.sections = req.body;

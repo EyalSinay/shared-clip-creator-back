@@ -5,35 +5,35 @@ const { deleteFileFromS3 } = require('../utils/s3.js');
 
 //! ref participant to project  
 const Section = new mongoose.Schema({
-    secName: { type: String, default: "sec" }, // unique only for this project (pre('validate'))
-    targetName: String,
+    secName: { type: String, default: "sec" },
     targetEmail: {
         type: String,
         trim: true,
         lowercase: true,
         validate(value) {
-            if (!validator.isEmail(value)) {
-                throw new Error('Email is invalid')
+            if (!validator.isEmail(value) && value !== "") {
+                throw new Error('Email is invalid');
             }
         }
     },
     targetPhon: {
         type: String,
         validate(value) {
-            if (!validator.isMobilePhone(value)) {
-                throw new Error('Phone number is invalid')
+            if (!validator.isMobilePhone(value) && value !== "") {
+                throw new Error('Phone number is invalid');
             }
         }
     },
     secure: { type: Boolean, default: false },
     allowedWatch: { type: Boolean, default: false },
     secLink: String,
+    fullLink: String,
     secondStart: { type: Number, required: true, default: 0 },
     secondEnd: { type: Number, required: true, default: 0 },
-    link: String,
-    seenByOwner: {type: Boolean, default: true},
-    seenByParticipant: {type: Boolean, default: true},
+    seenByOwner: {type: Boolean, default: false},
+    seenByParticipant: {type: Boolean, default: false},
     vars: [{key: String, value: String}],
+    color: String,
     videoTrack: String,
     lastActiveAt: Date,
 });
@@ -77,12 +77,13 @@ projectSchema.methods.toJSON = function () {
 projectSchema.pre('validate', async function (next) {
     const project = this;
 
-    const sorted_arr = project.sections.map(sec => sec.secName).sort();
-    for (let i = 1; i < sorted_arr.length; i++) {
-        if (sorted_arr[i] === sorted_arr[i - 1]) {
-            next(new Error('secName must be unique'));
-        }
-    }
+    // unique secName
+    // const sorted_arr = project.sections.map(sec => sec.secName).sort();
+    // for (let i = 1; i < sorted_arr.length; i++) {
+    //     if (sorted_arr[i] === sorted_arr[i - 1]) {
+    //         next(new Error('secName must be unique'));
+    //     }
+    // }
 
     if (project.__v === undefined) {
         const allProjectsByThisOwner = await Project.find({ owner: project.owner });
