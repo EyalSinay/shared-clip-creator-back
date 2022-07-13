@@ -187,6 +187,7 @@ router.get('/users/projects/:id/concatVideo', auth, async (req, res) => {
         }
         const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, videos, project.allowed, project._id);
 
+        res.set('Content-Type', 'video/mp4');
         clipStream.pipe(res).on('finish', () => removeAllAtomsFiles(allPaths));
     } catch (e) {
         res.status(500).send();
@@ -241,7 +242,7 @@ router.get('/users/projects/:id/sections/:sec/videoTrack', auth, async (req, res
 // -----PATCH:-----
 router.patch('/users/projects/:id', auth, async (req, res) => {
     const updates = Object.keys(req.body);
-    const allowedUpdates = ['projectName', 'sections', 'allowed'];
+    const allowedUpdates = ['projectName', 'sections', 'allowed', 'message'];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
     if (!isValidOperation) {
         return res.status(400).send({ error: 'Invalid updates!' })
@@ -266,6 +267,7 @@ router.patch('/users/projects/:id', auth, async (req, res) => {
 router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.single('videoTrack'), async (req, res) => {
     const _id = req.params.id;
     const file = req.file;
+
 
     const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
     if (!project) {

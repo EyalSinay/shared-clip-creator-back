@@ -6,6 +6,7 @@ const { deleteFileFromS3 } = require('../utils/s3.js');
 //! ref participant to project  
 const Section = new mongoose.Schema({
     secName: { type: String, default: "sec" },
+    projectName: String,
     targetEmail: {
         type: String,
         trim: true,
@@ -33,6 +34,7 @@ const Section = new mongoose.Schema({
     seenByOwner: {type: Boolean, default: false},
     seenByParticipant: {type: Boolean, default: false},
     vars: [{key: String, value: String}],
+    massage: String,
     color: String,
     videoTrack: String,
     lastActiveAt: Date,
