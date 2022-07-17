@@ -6,9 +6,11 @@ const Project = require('../models/projectModel.js');
 const { BASE_URL_FRONT } = require('../utils/global-vars.js')
 const { uploadAudio, uploadVideo } = require('../middleware/uploads.js');
 const { uploadToS3, downloadFromS3, deleteFileFromS3 } = require('../utils/s3.js');
-const { getConcatVideo, removeAllAtomsFiles } = require('../utils/get-concat-video.js');
+const { getConcatVideo, removeAllAtomsFiles, videoShortens } = require('../utils/ffmpegFunctions.js');
 const User = require('../models/userModel');
 const router = new express.Router();
+
+const piping = [];
 
 
 // -----POST:-----
@@ -78,8 +80,8 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         }
 
         req.body.forEach(sec => {
-            sec.secLink = "/" + "project/" + project._id + "/" + sec._id;
-            sec.fullLink = BASE_URL_FRONT + "project/" + project._id + "/" + sec._id;
+            sec.secLink = "/project/" + project._id + "/section/" + sec._id;
+            sec.fullLink = BASE_URL_FRONT + "project/" + project._id + "/section/" + sec._id;
         });
 
         const preSections = [...project.sections];
@@ -117,8 +119,8 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
                         projectsParticipant: {
                             projectName: project.projectName,
                             projectOwnerName: projectOwner.owner.name,
-                            fullLink: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
-                            link: "/" + "project/" + project._id + "/" + sec._id,
+                            fullLink: BASE_URL_FRONT + "project/" + project._id + "/section/" + sec._id,
+                            link: "/project/" + project._id + "/section/" + sec._id,
                             sectionId: sec._id
                         }
                     }
@@ -165,31 +167,46 @@ router.get('/users/projects/:id/audioTrack', async (req, res) => {
             return res.status(404).send();
         }
         const userAudioTrack = downloadFromS3(project.audioTrack);
-        res.set('Content-Type', 'audio/mpeg')
+        res.set('Content-Type', 'audio/mpeg');
         userAudioTrack.pipe(res);
     } catch (e) {
         res.status(500).send();
     }
 });
 
-router.get('/users/projects/:id/concatVideo', auth, async (req, res) => {
+// ! check how to get it in front with token
+router.get('/users/projects/:id/concatVideo', async (req, res) => {
     const _id = req.params.id;
     try {
-        const project = await Project.findOne({ _id, owner: req.user._id });
+        const project = await Project.findOne({ _id, /* owner: req.user._id */ });
         if (!project) {
             return res.status(404).send()
         }
         const userAudioTrack = downloadFromS3(project.audioTrack);
         const videos = [];
         for (let sec of project.sections) {
-            const sectionVideoTrack = downloadFromS3(sec.videoTrack);
-            videos.push(sectionVideoTrack);
+            const duration = Math.round((sec.secondEnd - sec.secondStart) * 10) / 10;
+            if (sec.videoTrack) {
+                const sectionVideoTrack = downloadFromS3(sec.videoTrack);
+                videos.push({ video: sectionVideoTrack, duration });
+            } else {
+                videos.push({ video: "no-video", duration });
+            }
         }
-        const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, videos, project.allowed, project._id);
+        const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, videos, project.allowed, project._id, project.scaleVideo);
+
+        // ! Why sometimes after this request end, i send a delete request to delete sec-video and i get an error from aws-sdk???
+        // ! How to ensure that in any case, even if the user canceled the request, the files will be deleted???
+        req.on('close', () => removeAllAtomsFiles(allPaths));
 
         res.set('Content-Type', 'video/mp4');
-        clipStream.pipe(res).on('finish', () => removeAllAtomsFiles(allPaths));
+        clipStream.pipe(res)
+            .on('error', () => removeAllAtomsFiles(allPaths))
+            .on('finish', () => removeAllAtomsFiles(allPaths));
+
+
     } catch (e) {
+        removeAllAtomsFiles(allPaths);
         res.status(500).send();
     }
 });
@@ -215,7 +232,8 @@ router.get('/users/projects/:id/sections/:sec', auth, async (req, res) => {
     }
 });
 
-router.get('/users/projects/:id/sections/:sec/videoTrack', auth, async (req, res) => {
+// ! check how to get it in front with token
+router.get('/users/projects/:id/sections/:sec/videoTrack', async (req, res) => {
     const _id = req.params.id;
     try {
         const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
@@ -230,7 +248,12 @@ router.get('/users/projects/:id/sections/:sec/videoTrack', auth, async (req, res
             }
         }
 
+        if (!section.videoTrack) {
+            return res.status(404).send();
+        }
+
         const sectionVideoTrack = downloadFromS3(section.videoTrack);
+        res.set('Content-Type', 'video/mp4');
         sectionVideoTrack.pipe(res);
 
     } catch (e) {
@@ -270,15 +293,16 @@ router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.s
 
 
     const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
+    const pathFile = file.path;
     if (!project) {
-        fs.unlinkSync(file.path);
+        fs.unlinkSync(pathFile);
         return res.status(404).send();
     }
     const section = project.sections.find(mySec => mySec._id.toString() === req.params.sec);
 
     if (section.secure) {
         if (req.user.email !== section.targetEmail) {
-            fs.unlinkSync(file.path);
+            fs.unlinkSync(pathFile);
             return res.status(404).send();
         }
     }
@@ -288,13 +312,21 @@ router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.s
         console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
     }
 
+    const duration = section.secondEnd - section.secondStart;
+    const result = await videoShortens(duration, pathFile);
 
-    //! if to long, go to function that Shortens the video by the seconds
+    if (result === "TO_SHORT") {
+        return res.status(406).send("your video is to short");
+    }
+
+    if (result === "SHORTED") file.path += ".mp4";
 
     const uploadResult = await uploadToS3(file);
     section.videoTrack = uploadResult.Key;
     await project.save();
-    fs.unlinkSync(file.path);
+
+    if (result === "SHORTED") fs.unlinkSync(file.path);
+    fs.unlinkSync(pathFile);
 
     res.send('success');
 }, (error, req, res, next) => {
@@ -339,11 +371,13 @@ router.delete('/users/projects/:id/audioTrack', auth, async (req, res) => {
 router.delete('/users/projects/:id/sections/:sec/videoTrack', auth, async (req, res) => {
     const _id = req.params.id;
     try {
+
         const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
         if (!project) {
             return res.status(404).send();
         }
         const section = project.sections.find(mySec => mySec._id.toString() === req.params.sec);
+
 
         if (section.secure) {
             if (req.user.email !== section.targetEmail) {

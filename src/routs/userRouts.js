@@ -16,8 +16,8 @@ router.post('/users/signup', async (req, res) => {
                 projectsParticipantRrr.push({
                     projectName: project.projectName,
                     projectOwnerName: projectOwner.owner.name,
-                    fullLink: BASE_URL_FRONT + "project/" + project._id + "/" + sec._id,
-                    link: "/" + "project/" + project._id + "/" + sec._id,
+                    fullLink: BASE_URL_FRONT + "project/" + project._id + "/section/" + sec._id,
+                    link: "/project/" + project._id + "/section/" + sec._id,
                     sectionId: sec._id
                 });
             }
