@@ -4,7 +4,7 @@ var mongoose = require('mongoose');
 const auth = require('../middleware/auth');
 const Project = require('../models/projectModel.js');
 const { BASE_URL_FRONT } = require('../utils/global-vars.js')
-const { uploadAudio, uploadVideo } = require('../middleware/uploads.js');
+const { uploadAudio, uploadVideo, uploadImage } = require('../middleware/uploads.js');
 const { uploadToS3, downloadFromS3, deleteFileFromS3 } = require('../utils/s3.js');
 const { getConcatVideo, removeAllAtomsFiles, videoShortens } = require('../utils/ffmpegFunctions.js');
 const User = require('../models/userModel');
@@ -38,8 +38,8 @@ router.post('/users/projects/:id/audioTrack', auth, uploadAudio.single('audioTra
         throw new Error('error');
     }
     if (project.audioTrack) {
-        const deleteVideoTrackResults = await deleteFileFromS3(project.audioTrack);
-        console.log("audioTrack is deleted from s3", deleteVideoTrackResults);
+        const deleteAudioTrackResults = await deleteFileFromS3(project.audioTrack);
+        console.log("audioTrack is deleted from s3", deleteAudioTrackResults);
     }
     // manipulate the file here...
     // if not, use: multer-s3
@@ -102,7 +102,7 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
                 });
 
                 if (preSections[i].videoTrack) {
-                    deleteFileFromS3(preSections[i].videoTrack)
+                    const deleteVideoTrackResults = await deleteFileFromS3(preSections[i].videoTrack)
                     console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
                 }
             }
@@ -183,17 +183,20 @@ router.get('/users/projects/:id/concatVideo', async (req, res) => {
             return res.status(404).send()
         }
         const userAudioTrack = downloadFromS3(project.audioTrack);
-        const videos = [];
+        const files = [];
         for (let sec of project.sections) {
             const duration = Math.round((sec.secondEnd - sec.secondStart) * 10) / 10;
             if (sec.videoTrack) {
                 const sectionVideoTrack = downloadFromS3(sec.videoTrack);
-                videos.push({ video: sectionVideoTrack, duration });
+                files.push({ type: "video", file: sectionVideoTrack, duration });
+            } else if (sec.image) {
+                const sectionImage = downloadFromS3(sec.image);
+                files.push({ type: "image", file: sectionImage, duration });
             } else {
-                videos.push({ video: "no-video", duration });
+                files.push({ type: "no-file", duration });
             }
         }
-        const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, videos, project.allowed, project._id, project.scaleVideo);
+        const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, files, project.allowed, project._id, project.scaleVideo);
 
         // ! Why sometimes after this request end, i send a delete request to delete sec-video and i get an error from aws-sdk???
         // ! How to ensure that in any case, even if the user canceled the request, the files will be deleted???
@@ -261,6 +264,35 @@ router.get('/users/projects/:id/sections/:sec/videoTrack', async (req, res) => {
     }
 });
 
+// ! check how to get it in front with token
+router.get('/users/projects/:id/sections/:sec/image', async (req, res) => {
+    const _id = req.params.id;
+    try {
+        const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
+        if (!project) {
+            return res.status(404).send();
+        }
+        const section = project.sections.find(mySec => mySec._id.toString() === req.params.sec);
+
+        if (section.secure) {
+            if (req.user.email !== section.targetEmail) {
+                return res.status(404).send();
+            }
+        }
+
+        if (!section.image) {
+            return res.status(404).send();
+        }
+
+        const sectionVideoTrack = downloadFromS3(section.image);
+        res.set('Content-Type', 'image/jpeg');
+        sectionVideoTrack.pipe(res);
+
+    } catch (e) {
+        res.status(500).send();
+    }
+});
+
 
 // -----PATCH:-----
 router.patch('/users/projects/:id', auth, async (req, res) => {
@@ -311,6 +343,10 @@ router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.s
         const deleteVideoTrackResults = await deleteFileFromS3(section.videoTrack);
         console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
     }
+    if (section.image) {
+        const deleteImageResults = await deleteFileFromS3(section.image);
+        console.log("image is deleted from s3", deleteImageResults);
+    }
 
     const duration = section.secondEnd - section.secondStart;
     const result = await videoShortens(duration, pathFile);
@@ -323,9 +359,51 @@ router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.s
 
     const uploadResult = await uploadToS3(file);
     section.videoTrack = uploadResult.Key;
+    section.image = "";
     await project.save();
 
     if (result === "SHORTED") fs.unlinkSync(file.path);
+    fs.unlinkSync(pathFile);
+
+    res.send('success');
+}, (error, req, res, next) => {
+    res.status(400).send({ error: error.message });
+});
+
+router.patch('/users/projects/:id/sections/:sec/image', auth, uploadImage.single('image'), async (req, res) => {
+    const _id = req.params.id;
+    const file = req.file;
+
+
+    const project = await Project.findOne({ _id, 'sections._id': req.params.sec });
+    const pathFile = file.path;
+    if (!project) {
+        fs.unlinkSync(pathFile);
+        return res.status(404).send();
+    }
+    const section = project.sections.find(mySec => mySec._id.toString() === req.params.sec);
+
+    if (section.secure) {
+        if (req.user.email !== section.targetEmail) {
+            fs.unlinkSync(pathFile);
+            return res.status(404).send();
+        }
+    }
+
+    if (section.videoTrack) {
+        const deleteVideoTrackResults = await deleteFileFromS3(section.videoTrack);
+        console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
+    }
+    if (section.image) {
+        const deleteImageResults = await deleteFileFromS3(section.image);
+        console.log("image is deleted from s3", deleteImageResults);
+    }
+
+    const uploadResult = await uploadToS3(file);
+    section.image = uploadResult.Key;
+    section.videoTrack = "";
+    await project.save();
+
     fs.unlinkSync(pathFile);
 
     res.send('success');
@@ -385,10 +463,17 @@ router.delete('/users/projects/:id/sections/:sec/videoTrack', auth, async (req, 
             }
         }
 
-        const deleteVideoTrackResults = await deleteFileFromS3(section.videoTrack);
-        console.log(deleteVideoTrackResults);
+        if (section.videoTrack) {
+            const deleteFileResults = await deleteFileFromS3(section.videoTrack);
+            console.log("file is deleted from s3", deleteFileResults);
+        }
+        if (section.image) {
+            const deleteFileResults = await deleteFileFromS3(section.image);
+            console.log("file is deleted from s3", deleteFileResults);
+        }
 
         section.videoTrack = "";
+        section.image = "";
         project.save();
 
         res.status(204).send();

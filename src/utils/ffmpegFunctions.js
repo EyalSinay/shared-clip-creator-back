@@ -2,55 +2,83 @@ const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 const { rootPath } = require('./global-vars')
 
-const getConcatVideo = async (audio, videosArr, allowed, projectId, scale) => {
+// ! Create abort stations (maybe by push the paths to delete every step, and on error delete them)
+// ? Maybe it's possible already in the first part, to get the files by stream input, resize them, and export them to a ts files!
+const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
     console.log("Starting to create clip for: " + projectId);
     // videos:
     const allPromises = [];
     const videosPaths = [];
-    for (let i = 0; i < videosArr.length; i++) {
+    for (let i = 0; i < files.length; i++) {
         let videoPath = __dirname + `/files/${projectId}-${Date.now()}`;
-        if (videosArr[i].video !== "no-video") {
+
+        if (files[i].type === "video") {
             videoPath += `-video-${i}.mp4`;
             const videoWritableStream = fs.createWriteStream(videoPath);
-            const pipeVideo = videosArr[i].video.pipe(videoWritableStream);
+            const pipeVideo = files[i].file.pipe(videoWritableStream);
             const videoPromise = new Promise((resolve, reject) => {
                 pipeVideo.on('finish', () => resolve(`video ${i} finish`))
-                .on('error', (e) => reject(`video ${i} error: ${e}`));
+                    .on('error', (e) => reject(`video ${i} error: ${e}`));
             });
             videosPaths.push(videoPath);
             allPromises.push(videoPromise);
-        } else {
+
+        } else if (files[i].type === "image") {
+
+            videoPath += `-imageVideo-${i}.mp4`;
+            const imageVideo = new ffmpeg(files[i].file)
+                .loop(files[i].duration)
+                .output(videoPath)
+                .outputOptions('-pix_fmt yuv420p')
+                .videoCodec('libx264')
+                .complexFilter('anullsrc=channel_layout=5.1:sample_rate=48000')
+                .size(scale)
+                .autopad();
+
+            const videoPromise = new Promise((resolve, reject) => {
+                imageVideo.on('end', () => resolve(`image video ${i} finish`))
+                    .on('error', (e) => reject(`image video ${i} error: ${e}`))
+                    .run();
+            });
+            videosPaths.push(videoPath);
+            allPromises.push(videoPromise);
+
+        } else if (files[i].type === "no-file") {
+
             videoPath += `-emptyVideo-${i}.mp4`;
             const emptyVideo = new ffmpeg({ source: rootPath + "/src/assets/logo-corner.png" })
-            .loop(videosArr[i].duration)
-            .output(videoPath)
-            .outputOptions('-pix_fmt yuv420p')
-            .videoCodec('libx264')
-            .complexFilter('anullsrc=channel_layout=5.1:sample_rate=48000')
-            .size(scale)
-            .autopad('white')
-            .videoFilters({
-                filter: 'drawtext',
-                options: {
-                    fontfile: rootPath + '/src/assets/fonts/COOPBL.TTF',
-                    text: `participant ${i + 1}`,
-                    fontsize: 60,
-                    fontcolor: 'black',
-                    x: '(main_w/2-text_w/2)',
-                    y: '(main_h/3-text_h/2)',
-                    shadowcolor: 'black',
-                    shadowx: 2,
-                    shadowy: 2
-                }
-            });
-            
+                .loop(files[i].duration)
+                .output(videoPath)
+                .outputOptions('-pix_fmt yuv420p')
+                .videoCodec('libx264')
+                .complexFilter('anullsrc=channel_layout=5.1:sample_rate=48000')
+                .size(scale)
+                .autopad('white')
+                .videoFilters({
+                    filter: 'drawtext',
+                    options: {
+                        fontfile: rootPath + '/src/assets/fonts/COOPBL.TTF',
+                        text: `participant ${i + 1}`,
+                        fontsize: 60,
+                        fontcolor: 'black',
+                        x: '(main_w/2-text_w/2)',
+                        y: '(main_h/3-text_h/2)',
+                        shadowcolor: 'black',
+                        shadowx: 2,
+                        shadowy: 2
+                    }
+                });
+
             const videoPromise = new Promise((resolve, reject) => {
                 emptyVideo.on('end', () => resolve(`empty video ${i} finish`))
-                .on('error', (e) => reject(`empty video ${i} error: ${e}`))
-                .run();
+                    .on('error', (e) => reject(`empty video ${i} error: ${e}`))
+                    .run();
             });
             videosPaths.push(videoPath);
             allPromises.push(videoPromise);
+
+        } else {
+            throw new Error("maaa")
         }
     }
 
@@ -97,6 +125,7 @@ const getConcatVideo = async (audio, videosArr, allowed, projectId, scale) => {
     } catch (err) {
         console.error(err);
     }
+
 
     // convert to ts file:
     const tsVideosPathsArr = [];
@@ -219,7 +248,7 @@ exports.getConcatVideo = getConcatVideo;
 
 const removeAllAtomsFiles = (allPaths) => {
     for (const path of allPaths) {
-        fs.unlinkSync(path);
+        if (fs.existsSync(path)) fs.unlinkSync(path);
     }
 }
 exports.removeAllAtomsFiles = removeAllAtomsFiles;

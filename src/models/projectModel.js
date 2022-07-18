@@ -37,6 +37,7 @@ const Section = new mongoose.Schema({
     massage: String,
     color: String,
     videoTrack: String,
+    image: String,
     lastActiveAt: Date,
 });
 
@@ -134,6 +135,10 @@ Section.pre('remove', async function (next) {
         const deleteVideoTrackResults = await deleteFileFromS3(section.videoTrack);
         console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
     }
+    if (section.image) {
+        const deleteImageResults = await deleteFileFromS3(section.image);
+        console.log("image is deleted from s3", deleteImageResults);
+    }
 
     next();
 });
@@ -141,8 +146,8 @@ Section.pre('remove', async function (next) {
 projectSchema.pre('remove', async function (next) {
     const project = this;
     if (project.audioTrack) {
-        const deleteVideoTrackResults = await deleteFileFromS3(project.audioTrack);
-        console.log("audioTrack is deleted from s3", deleteVideoTrackResults);
+        const deleteAudioTrackResults = await deleteFileFromS3(project.audioTrack);
+        console.log("audioTrack is deleted from s3", deleteAudioTrackResults);
     }
     next();
 });

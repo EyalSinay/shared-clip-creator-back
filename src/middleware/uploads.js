@@ -19,12 +19,24 @@ const uploadVideo = multer({
         fileSize: 50000000
     },
     fileFilter(req, file, cb) {
-        if (!file.originalname.endsWith('.mp4')
+        if (!file.originalname.endsWith('.mp4')) {
+            return cb(new Error('File types are accepted: mp4'));
+        }
+        cb(undefined, true)
+    }
+});
+
+const uploadImage = multer({
+    dest: 'uploads/',
+    limits: {
+        fileSize: 5000000
+    },
+    fileFilter(req, file, cb) {
+        if (!file.originalname.endsWith('.jpg')
             &&
-            !file.originalname.endsWith('.jpg')
-            &&
-            !file.originalname.endsWith('.jpeg')) {
-            return cb(new Error('File types are accepted: mp4, jpg, jpeg'));
+            !file.originalname.endsWith('.jpeg')
+        ) {
+            return cb(new Error('File types are accepted: jpg, jpeg'));
         }
         cb(undefined, true)
     }
@@ -32,5 +44,6 @@ const uploadVideo = multer({
 
 module.exports = {
     uploadAudio,
-    uploadVideo
+    uploadVideo,
+    uploadImage
 }
