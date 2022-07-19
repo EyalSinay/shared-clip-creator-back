@@ -34,7 +34,6 @@ const Section = new mongoose.Schema({
     seenByOwner: { type: Boolean, default: false },
     seenByParticipant: { type: Boolean, default: false },
     vars: [{ key: String, value: String }],
-    massage: String,
     color: String,
     videoTrack: String,
     image: String,
@@ -54,6 +53,7 @@ const projectSchema = new mongoose.Schema({
         required: true,
         ref: 'User'
     },
+    varsKeys: [],
     massage: String,
     allowed: Boolean,
     createdAt: { type: Date, required: true },

@@ -225,7 +225,7 @@ router.get('/users/projects/:id/sections/:sec', auth, async (req, res) => {
 
         if (section.secure) {
             if (req.user.email !== section.targetEmail) {
-                return res.status(404).send();
+                return res.status(401).send();
             }
         }
 
