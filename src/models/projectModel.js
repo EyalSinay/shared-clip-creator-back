@@ -55,7 +55,7 @@ const projectSchema = new mongoose.Schema({
     },
     varsKeys: [],
     massage: String,
-    allowed: Boolean,
+    allowed: { type: Boolean, default: false },
     createdAt: { type: Date, required: true },
     lastActiveAt: Date,
 });

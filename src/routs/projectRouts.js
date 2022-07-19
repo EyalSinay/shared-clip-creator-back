@@ -297,7 +297,7 @@ router.get('/users/projects/:id/sections/:sec/image', async (req, res) => {
 // -----PATCH:-----
 router.patch('/users/projects/:id', auth, async (req, res) => {
     const updates = Object.keys(req.body);
-    const allowedUpdates = ['projectName', 'sections', 'allowed', 'message'];
+    const allowedUpdates = ['projectName', 'sections', 'allowed', 'message', 'scaleVideo'];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
     if (!isValidOperation) {
         return res.status(400).send({ error: 'Invalid updates!' })
