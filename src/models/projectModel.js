@@ -36,6 +36,7 @@ const Section = new mongoose.Schema({
     vars: [{ key: String, value: String }],
     color: String,
     videoTrack: String,
+    volumeVideoTrack: { type: Number, min: 0, max: 1, default: 1 },
     image: String,
     lastActiveAt: Date,
 });
@@ -47,6 +48,7 @@ const projectSchema = new mongoose.Schema({
     },
     scaleVideo: { type: String, default: "1920x1080" },
     audioTrack: String,
+    volumeAudioTrack: { type: Number, min: 0, max: 1, default: 1 },
     sections: [Section],
     owner: {
         type: mongoose.Schema.Types.ObjectId,
