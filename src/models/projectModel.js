@@ -26,7 +26,6 @@ const Section = new mongoose.Schema({
         }
     },
     secure: { type: Boolean, default: false },
-    allowedWatch: { type: Boolean, default: false },
     secLink: String,
     fullLink: String,
     secondStart: { type: Number, required: true, default: 0 },
