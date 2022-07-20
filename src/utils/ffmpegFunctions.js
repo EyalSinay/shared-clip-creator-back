@@ -99,6 +99,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
         console.error(err);
     }
 
+    // ! add volume options
 
     // resizeVideos:
     const resizeVideosPathsArr = [];
