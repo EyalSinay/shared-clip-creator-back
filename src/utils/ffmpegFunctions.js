@@ -4,6 +4,7 @@ const { rootPath } = require('./global-vars')
 
 // ! Create abort stations (maybe by push the paths to delete every step, and on error delete them)
 // ? Maybe it's possible already in the first part, to get the files by stream input, resize them, and export them to a ts files!
+// ! set volume audio and videos!
 const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
     console.log("Starting to create clip for: " + projectId);
     // videos:
@@ -58,7 +59,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                     filter: 'drawtext',
                     options: {
                         fontfile: rootPath + '/src/assets/fonts/COOPBL.TTF',
-                        text: `participant ${i + 1}`,
+                        text: `participant ${i + 1}`, //! change to name of section
                         fontsize: 60,
                         fontcolor: 'black',
                         x: '(main_w/2-text_w/2)',
