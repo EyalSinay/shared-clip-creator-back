@@ -4,6 +4,7 @@ const auth = require('../middleware/auth.js');
 const Project = require('../models/projectModel.js');
 const { BASE_URL_FRONT } = require('../utils/global-vars.js');
 const router = new express.Router();
+const {welcomeMail} = require('../utils/nodemailer.js')
 
 // -----POST:-----
 router.post('/users/signup', async (req, res) => {
@@ -34,6 +35,8 @@ router.post('/users/signup', async (req, res) => {
 
     try {
         await user.save();
+
+        welcomeMail(req.body.email, req.body.name);
 
         const token = await user.generateAuthToken();
         res.status(201).send({ user, token });
