@@ -6,6 +6,8 @@ const Project = require('../models/projectModel.js');
 const { BASE_URL_FRONT } = require('../utils/global-vars.js')
 const { uploadAudio, uploadVideo, uploadImage } = require('../middleware/uploads.js');
 const { uploadToS3, downloadFromS3, deleteFileFromS3 } = require('../utils/s3.js');
+const { userToParticipants } = require('../utils/nodemailer.js');
+const { getSectionMessage } = require('../utils/getSectionMessage.js');
 const { getConcatVideo, removeAllAtomsFiles, videoShortens } = require('../utils/ffmpegFunctions.js');
 const User = require('../models/userModel');
 const router = new express.Router();
@@ -65,7 +67,9 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         for (let i = 0; i < req.body.length; i++) {
             for (let j = 0; j < project.sections.length; j++) {
                 if (
-                    req.body[i].targetEmail === project.sections[j].targetEmail
+                    (req.body[i].targetEmail === project.sections[j].targetEmail
+                        ||
+                        project.sections[j].targetEmail === "")
                     &&
                     req.body[i].secondStart === project.sections[j].secondStart
                     &&
@@ -88,7 +92,6 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         project.sections = req.body;
         await project.save();
 
-
         for (let i = 0; i < preSections.length; i++) {
             const secId = preSections[i]._id;
 
@@ -107,7 +110,6 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
                 }
             }
         }
-
 
         for (let sec of req.body) {
             const secId = sec._id;
@@ -134,6 +136,25 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
     }
 });
 
+router.post('/users/projects/:id/sendMailAll', auth, async (req, res) => {
+    const _id = req.params.id;
+    try {
+        const project = await Project.findOne({ _id, owner: req.user._id });
+        if (!project) {
+            throw new Error('error');
+        }
+
+        project.sections.forEach(sec => {
+            if (req.body.includes(sec._id.toString())) {
+                userToParticipants(req.user.email, req.user.name, project.projectName, sec)
+            }
+        })
+
+        res.send("wallak");
+    } catch (err) {
+        res.status(400).send({ error: err.message });
+    }
+});
 
 // -----GET:-----
 router.get('/users/projects', auth, async (req, res) => {
@@ -310,6 +331,13 @@ router.patch('/users/projects/:id', auth, async (req, res) => {
     }
 
     try {
+        if (updates.some((update) => update === 'message')) {
+            project.sections.forEach(sec => {
+                sec.message = getSectionMessage(sec.vars, req.body.message, sec.secName, sec.fullLink);
+            });
+        }
+
+
         updates.forEach((update) => project[update] = req.body[update]);
         await project.save();
         res.send(project);

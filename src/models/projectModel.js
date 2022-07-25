@@ -32,6 +32,10 @@ const Section = new mongoose.Schema({
     secondEnd: { type: Number, required: true, default: 0 },
     seenByOwner: { type: Boolean, default: false },
     seenByParticipant: { type: Boolean, default: false },
+    message: {
+        message: String,
+        paragraphsArr: [String]
+    },
     vars: [{ key: String, value: String }],
     color: String,
     videoTrack: String,
@@ -56,7 +60,10 @@ const projectSchema = new mongoose.Schema({
         ref: 'User'
     },
     varsKeys: [],
-    message: String,
+    message: {
+        message: String,
+        paragraphsArr: [String]
+    },
     allowed: { type: Boolean, default: false },
     createdAt: { type: Date, required: true },
     lastActiveAt: Date,
@@ -107,7 +114,7 @@ projectSchema.pre('save', function (next) {
     next();
 });
 
-Section.pre('save', function (next) {
+Section.pre('save', function async (next) {
     const Section = this;
     Section.lastActiveAt = new Date();
     next();
