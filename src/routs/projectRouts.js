@@ -86,9 +86,7 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         req.body.forEach(sec => {
             sec.secLink = "/project/" + project._id + "/section/" + sec._id;
             sec.fullLink = BASE_URL_FRONT + "project/" + project._id + "/section/" + sec._id;
-            if (sec.vars && project.message && sec.secName && sec.fullLink) {
-                sec.message = getSectionMessage(sec.vars, project.message, sec.secName, sec.fullLink);
-            }
+            sec.message = getSectionMessage(sec.vars, project.message, sec.secName, sec.fullLink);
         });
 
         const preSections = [...project.sections];
