@@ -1,4 +1,4 @@
-const BASE_URL_FRONT = "http://localhost:3000/";
+const BASE_URL_FRONT = process.env.RUN_STATUS === "development" ? "https://collaclip.herokuapp.com/" : "http://localhost:3000/";
 
 const path = __dirname;
 const newPath = path.split("\\");

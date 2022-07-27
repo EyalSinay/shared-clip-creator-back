@@ -3,13 +3,14 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const userRouts = require('./src/routs/userRouts.js');
 const projectRouts = require('./src/routs/projectRouts.js');
+const { mongoUrl } = require('./src/config/mongoConnectionStrings');
 
 const app = express();
 
-mongoose.connect('mongodb://127.0.0.1:27017/shared-clip-creator', (error, mongoConnectionInstance) => {
-    if(error) return console.error("Mongoose connection error: " + error);
-    if(!process.env.NODE_ENV){
-        const {host, port, name} = mongoConnectionInstance;
+mongoose.connect(mongoUrl, (error, mongoConnectionInstance) => {
+    if (error) return console.error("Mongoose connection error: " + error);
+    if (!process.env.NODE_ENV) {
+        const { host, port, name } = mongoConnectionInstance;
         console.log("Mongoose connect:", host, port, name);
     }
 });
