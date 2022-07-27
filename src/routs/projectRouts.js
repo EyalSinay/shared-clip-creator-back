@@ -180,7 +180,7 @@ router.get('/users/projects/:id', auth, async (req, res) => {
     }
 });
 
-// ! check how to get it in front with token
+// ! get it in front with token
 router.get('/users/projects/:id/audioTrack', async (req, res) => {
     const _id = req.params.id;
     try {
@@ -196,7 +196,7 @@ router.get('/users/projects/:id/audioTrack', async (req, res) => {
     }
 });
 
-// ! check how to get it in front with token
+// ! get it in front with token
 router.get('/users/projects/:id/concatVideo', async (req, res) => {
     const _id = req.params.id;
     try {
@@ -222,7 +222,7 @@ router.get('/users/projects/:id/concatVideo', async (req, res) => {
 
         // ! Why sometimes after this request end, i send a delete request to delete sec-video and i get an error from aws-sdk???
         // ! How to ensure that in any case, even if the user canceled the request, the files will be deleted???
-        req.on('close', () => removeAllAtomsFiles(allPaths));
+        // req.on('close', () => removeAllAtomsFiles(allPaths));
 
         res.set('Content-Type', 'video/mp4');
         clipStream.pipe(res)
@@ -257,7 +257,7 @@ router.get('/users/projects/:id/sections/:sec', auth, async (req, res) => {
     }
 });
 
-// ! check how to get it in front with token
+// ! get it in front with token
 router.get('/users/projects/:id/sections/:sec/videoTrack', async (req, res) => {
     const _id = req.params.id;
     try {
@@ -286,7 +286,7 @@ router.get('/users/projects/:id/sections/:sec/videoTrack', async (req, res) => {
     }
 });
 
-// ! check how to get it in front with token
+// ! get it in front with token
 router.get('/users/projects/:id/sections/:sec/image', async (req, res) => {
     const _id = req.params.id;
     try {

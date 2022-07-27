@@ -47,7 +47,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
         } else if (files[i].type === "no-file") {
 
             videoPath += `-emptyVideo-${i}.mp4`;
-            const emptyVideo = new ffmpeg({ source: rootPath + "/src/assets/logo-corner.png" })
+            const emptyVideo = new ffmpeg({ source: __dirname + '/assets/logo-corner.png' })
                 .loop(files[i].duration)
                 .output(videoPath)
                 .outputOptions('-pix_fmt yuv420p')
@@ -58,7 +58,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                 .videoFilters({
                     filter: 'drawtext',
                     options: {
-                        fontfile: rootPath + '/src/assets/fonts/COOPBL.TTF',
+                        fontfile: '',
                         text: `participant ${i + 1}`, //! change to name of section
                         fontsize: 60,
                         fontcolor: 'black',
@@ -200,7 +200,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
         clip.videoFilters({
             filter: 'drawtext',
             options: {
-                fontfile: rootPath + '/src/assets/fonts/COOPBL.TTF',
+                fontfile: __dirname + '/assets/fonts/COOPBL.TTF',
                 text: 'טקסט מעצבן עד שתשלם',
                 fontsize: 28,
                 fontcolor: 'white',
