@@ -73,7 +73,8 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
                     &&
                     req.body[i].secondStart === project.sections[j].secondStart
                     &&
-                    req.body[i].secondEnd === project.sections[j].secondEnd) {
+                    req.body[i].secondEnd === project.sections[j].secondEnd
+                ) {
                     req.body[i]._id = project.sections[j]._id;
                     idsDoseNotChanged.push(project.sections[j]._id);
                 }
@@ -91,6 +92,16 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
 
         const preSections = [...project.sections];
         project.sections = req.body;
+        for (let sec of project.sections) {
+            const secId = sec._id;
+
+            if (idsDoseNotChanged.some(id => id === secId)) {
+                const preSec = preSections.find(sec => sec._id === secId);
+
+                sec.videoTrack = preSec.videoTrack;
+                sec.image = preSec.image;
+            }
+        }
         await project.save();
 
         for (let i = 0; i < preSections.length; i++) {
@@ -106,8 +117,12 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
                 });
 
                 if (preSections[i].videoTrack) {
-                    const deleteVideoTrackResults = await deleteFileFromS3(preSections[i].videoTrack)
+                    const deleteVideoTrackResults = await deleteFileFromS3(preSections[i].videoTrack);
                     console.log("videoTrack is deleted from s3", deleteVideoTrackResults);
+                }
+                if (preSections[i].image) {
+                    const deleteImageResults = await deleteFileFromS3(preSections[i].image);
+                    console.log("videoTrack is deleted from s3", deleteImageResults);
                 }
             }
         }

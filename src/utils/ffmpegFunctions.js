@@ -1,5 +1,6 @@
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
+const Jimp = require('jimp');
 const { rootPath } = require('./global-vars')
 
 // ! Create abort stations (maybe by push the paths to delete every step, and on error delete them)
@@ -7,8 +8,83 @@ const { rootPath } = require('./global-vars')
 // ! set volume audio and videos!
 const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
     console.log("Starting to create clip for: " + projectId);
+
+    const splitVideoScale = scale.split('x');
+    const widthVideo = parseInt(splitVideoScale[0]);
+    const heightVideo = parseInt(splitVideoScale[1]);
+
+    // images stream to files:
+    const imagesPromises = [];
+    const imagesPaths = []
+    for (let i = 0; i < files.length; i++) {
+        if (files[i].type === "image") {
+            const imagePath = __dirname + `/files/${projectId}-image-${i}-${Date.now()}.jpg`;
+            imagesPaths.push(imagePath);
+            const imageWritableStream = fs.createWriteStream(imagePath);
+            const pipeImage = files[i].file.pipe(imageWritableStream);
+            const imagePromise = new Promise((resolve, reject) => {
+                pipeImage.on('finish', () => resolve(`image ${i} finish`))
+                    .on('error', (e) => reject(`image ${i} error: ${e}`));
+            });
+            imagesPromises.push(imagePromise);
+        } else {
+            imagesPaths.push("");
+        }
+    }
+    try {
+        const results = await Promise.all(imagesPromises);
+        console.log(results);
+    } catch (err) {
+        console.error(err);
+    }
+
+
+    // resize images:
+    const resizeImagesPromises = [];
+    const resizeImagesPaths = []
+    for (let i = 0; i < files.length; i++) {
+        if (files[i].type === "image") {
+            const imagePath = __dirname + `/files/${projectId}-resize-image-${i}-${Date.now()}.jpg`;
+            resizeImagesPaths.push(imagePath);
+            const resizeImagePromise = new Promise((resolve, reject) => {
+                Jimp.read(imagesPaths[i], (err, theImage) => {
+                    if (err) resolve('resize image ' + i + ' ERROR: ' + err);
+                    theImage
+                        .resize(widthVideo, heightVideo)
+                        .write(imagePath);
+                    reject('resize image ' + i + ' DONE')
+                });
+
+            });
+            resizeImagesPromises.push(resizeImagePromise);
+        } else if (files[i].type === "no-file") {
+            const imagePath = __dirname + `/files/${projectId}-resize-logo-image-${i}-${Date.now()}.png`;
+            resizeImagesPaths.push(imagePath);
+            const resizeImagePromise = new Promise((resolve, reject) => {
+                Jimp.read(__dirname + '/assets/corner-logo.jpg', (err, theImage) => {
+                    if (err) resolve('resize image ' + i + ' ERROR: ' + err);
+                    theImage
+                        .resize(widthVideo, heightVideo)
+                        .write(imagePath);
+                    reject('resize image ' + i + ' DONE')
+                });
+
+            });
+            resizeImagesPromises.push(resizeImagePromise);
+        } else {
+            resizeImagesPaths.push("");
+        }
+    }
+    try {
+        const results = await Promise.all(resizeImagesPromises);
+        console.log(results);
+    } catch (err) {
+        console.error(err);
+    }
+
+
     // videos:
-    const allPromises = [];
+    const allVideoPromises = [];
     const videosPaths = [];
     for (let i = 0; i < files.length; i++) {
         let videoPath = __dirname + `/files/${projectId}-${Date.now()}`;
@@ -22,19 +98,19 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                     .on('error', (e) => reject(`video ${i} error: ${e}`));
             });
             videosPaths.push(videoPath);
-            allPromises.push(videoPromise);
+            allVideoPromises.push(videoPromise);
 
         } else if (files[i].type === "image") {
 
             videoPath += `-imageVideo-${i}.mp4`;
-            const imageVideo = new ffmpeg(files[i].file)
+            const imageVideo = new ffmpeg({ source: resizeImagesPaths[i] })
                 .loop(files[i].duration)
                 .output(videoPath)
                 .outputOptions('-pix_fmt yuv420p')
                 .videoCodec('libx264')
                 .complexFilter('anullsrc=channel_layout=5.1:sample_rate=48000')
                 .size(scale)
-                .autopad();
+                .autopad('yellow');
 
             const videoPromise = new Promise((resolve, reject) => {
                 imageVideo.on('end', () => resolve(`image video ${i} finish`))
@@ -42,23 +118,23 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                     .run();
             });
             videosPaths.push(videoPath);
-            allPromises.push(videoPromise);
+            allVideoPromises.push(videoPromise);
 
         } else if (files[i].type === "no-file") {
 
             videoPath += `-emptyVideo-${i}.mp4`;
-            const emptyVideo = new ffmpeg({ source: __dirname + '/assets/logo-corner.png' })
+            const emptyVideo = new ffmpeg({ source: resizeImagesPaths[i] })
                 .loop(files[i].duration)
                 .output(videoPath)
                 .outputOptions('-pix_fmt yuv420p')
                 .videoCodec('libx264')
                 .complexFilter('anullsrc=channel_layout=5.1:sample_rate=48000')
                 .size(scale)
-                .autopad('white')
+                .autopad('yellow')
                 .videoFilters({
                     filter: 'drawtext',
                     options: {
-                        fontfile: '',
+                        fontfile: __dirname + '/assets/fonts/COOPBL.TTF',
                         text: `participant ${i + 1}`, //! change to name of section
                         fontsize: 60,
                         fontcolor: 'black',
@@ -76,7 +152,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                     .run();
             });
             videosPaths.push(videoPath);
-            allPromises.push(videoPromise);
+            allVideoPromises.push(videoPromise);
 
         } else {
             throw new Error("maaa")
@@ -91,10 +167,10 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
         pipeAudio.on('finish', () => resolve("audio finish"))
             .on('error', (e) => reject("audio error: " + e));
     });
-    allPromises.push(audioPromise);
+    allVideoPromises.push(audioPromise);
 
     try {
-        const results = await Promise.all(allPromises);
+        const results = await Promise.all(allVideoPromises);
         console.log(results);
     } catch (err) {
         console.error(err);
@@ -106,12 +182,13 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
     const resizeVideosPathsArr = [];
     const resizeVideosPromisesArr = [];
     for (let i = 0; i < videosPaths.length; i++) {
-        const resizeVideosPath = __dirname + `/files/${projectId}-${Date.now()}-resize-video-${i}.ts`;
+        if (files[i].type === "video") {
+        const resizeVideosPath = __dirname + `/files/${projectId}-${Date.now()}-resize-video-${i}.mp4`;
         resizeVideosPathsArr.push(resizeVideosPath);
         const resizeVideosFfmpeg = new ffmpeg();
         resizeVideosFfmpeg
             .addInput(videosPaths[i])
-            .size(scale).autopad();
+            .size(scale).autopad('yellow');
 
         const resizeVideoPromise = new Promise((resolve, reject) => {
             resizeVideosFfmpeg
@@ -120,6 +197,9 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                 .saveToFile(resizeVideosPath);
         })
         resizeVideosPromisesArr.push(resizeVideoPromise)
+        } else {
+            resizeVideosPathsArr.push(videosPaths[i]);
+        }
     }
     try {
         const result = await Promise.all(resizeVideosPromisesArr);
@@ -228,6 +308,12 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
     const clipStream = fs.createReadStream(clipPath);
 
     const allPaths = [];
+    for (const imagePath of imagesPaths) {
+        allPaths.push(imagePath);
+    }
+    for (const imagePath of resizeImagesPaths) {
+        allPaths.push(imagePath);
+    }
     for (const videoTrackPath of videosPaths) {
         allPaths.push(videoTrackPath);
     }

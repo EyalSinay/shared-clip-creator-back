@@ -50,10 +50,10 @@ const userToParticipants = (userMailAddress, userName, projectName, participant)
     message = participant.message.paragraphsArr;
 
     const mailOptions = {
-        from: userMailAddress,
+        from: 'collaclip@hotmail.com',
         to: participantAddress,
         subject: 'You got a section in CollaClip project!',
-        html: `<h1>Hello ${participantName}!</h1><h2>${userName} join u to project:</h2><h2>${projectName}</h2>${message.map(p => `<p>${p}</p>`)}`,
+        html: `<h1>Hello ${participantName}!</h1><h2>from email address: ${userMailAddress}</h2><h3>${userName} join u to project:</h3><h3>${projectName}</h3>${message.map(p => `<p>${p}</p>`)}`,
     };
 
     transporter.sendMail(mailOptions, function (error, info) {
