@@ -50,7 +50,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                 Jimp.read(imagesPaths[i], (err, theImage) => {
                     if (err) resolve('resize image ' + i + ' ERROR: ' + err);
                     theImage
-                        .resize(widthVideo, heightVideo)
+                        .contain(widthVideo, heightVideo)
                         .write(imagePath);
                     reject('resize image ' + i + ' DONE')
                 });
@@ -110,7 +110,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                 .videoCodec('libx264')
                 .complexFilter('anullsrc=channel_layout=5.1:sample_rate=48000')
                 .size(scale)
-                .autopad('yellow');
+                .autopad();
 
             const videoPromise = new Promise((resolve, reject) => {
                 imageVideo.on('end', () => resolve(`image video ${i} finish`))
@@ -130,7 +130,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
                 .videoCodec('libx264')
                 .complexFilter('anullsrc=channel_layout=5.1:sample_rate=48000')
                 .size(scale)
-                .autopad('yellow')
+                .autopad('white')
                 .videoFilters({
                     filter: 'drawtext',
                     options: {
@@ -188,7 +188,7 @@ const getConcatVideo = async (audio, files, allowed, projectId, scale) => {
         const resizeVideosFfmpeg = new ffmpeg();
         resizeVideosFfmpeg
             .addInput(videosPaths[i])
-            .size(scale).autopad('yellow');
+            .size(scale).autopad();
 
         const resizeVideoPromise = new Promise((resolve, reject) => {
             resizeVideosFfmpeg
