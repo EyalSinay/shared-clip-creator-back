@@ -47,6 +47,7 @@ router.post('/users/projects/:id/audioTrack', auth, uploadAudio.single('audioTra
     // if not, use: multer-s3
     const uploadResult = await uploadToS3(file);
     project.audioTrack = uploadResult.Key;
+    project.hasFile = true;
     await project.save();
     fs.unlinkSync(file.path);
 
@@ -100,6 +101,7 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
 
                 sec.videoTrack = preSec.videoTrack;
                 sec.image = preSec.image;
+                sec.hasFile = preSec.videoTrack || preSec.image ? true : false;
             }
         }
         await project.save();
@@ -337,7 +339,7 @@ router.patch('/users/projects/:id', auth, async (req, res) => {
     const allowedUpdates = ['projectName', 'allowed', 'message', 'varsKeys', 'scaleVideo', 'volumeAudioTrack', 'uploadFiles'];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
     if (!isValidOperation) {
-        return res.status(400).send({ error: 'Invalid updates!' })
+        return res.status(400).send({ error: 'Invalid updates!' });
     }
 
     const _id = req.params.id;
@@ -403,6 +405,7 @@ router.patch('/users/projects/:id/sections/:sec/videoTrack', auth, uploadVideo.s
 
     const uploadResult = await uploadToS3(file);
     section.videoTrack = uploadResult.Key;
+    if (!section.hasFile) section.hasFile = true;
     section.image = "";
     await project.save();
 
@@ -445,6 +448,7 @@ router.patch('/users/projects/:id/sections/:sec/image', auth, uploadImage.single
 
     const uploadResult = await uploadToS3(file);
     section.image = uploadResult.Key;
+    if (!section.hasFile) section.hasFile = true;
     section.videoTrack = "";
     await project.save();
 
@@ -471,6 +475,7 @@ router.delete('/users/projects/:id', auth, async (req, res) => {
     }
 });
 
+// not in use
 router.delete('/users/projects/:id/audioTrack', auth, async (req, res) => {
     const _id = req.params.id;
     try {
@@ -481,7 +486,10 @@ router.delete('/users/projects/:id/audioTrack', auth, async (req, res) => {
         const deleteAudioTrackResults = await deleteFileFromS3(project.audioTrack);
         console.log(deleteAudioTrackResults);
 
+        //!delete all sections files
+
         project.audioTrack = "";
+        project.hasFile = false;
         project.save();
 
         res.status(204).send();
@@ -516,6 +524,7 @@ router.delete('/users/projects/:id/sections/:sec/videoTrack', auth, async (req, 
             console.log("file is deleted from s3", deleteFileResults);
         }
 
+        if (section.hasFile) section.hasFile = false;
         section.videoTrack = "";
         section.image = "";
         project.save();

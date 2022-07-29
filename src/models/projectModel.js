@@ -41,6 +41,7 @@ const Section = new mongoose.Schema({
     videoTrack: String,
     volumeVideoTrack: { type: Number, min: 0, max: 1, default: 1 },
     image: String,
+    hasFile: { type: Boolean, default: false },
     lastActiveAt: Date,
 });
 
@@ -51,8 +52,9 @@ const projectSchema = new mongoose.Schema({
     },
     scaleVideo: { type: String, default: "1920x1080" },
     audioTrack: String,
+    hasFile: { type: Boolean, default: false },
     volumeAudioTrack: { type: Number, min: 0, max: 1, default: 1 },
-    uploadFiles: {type: Boolean, default: true},
+    uploadFiles: { type: Boolean, default: true },
     sections: [Section],
     owner: {
         type: mongoose.Schema.Types.ObjectId,
@@ -114,7 +116,7 @@ projectSchema.pre('save', function (next) {
     next();
 });
 
-Section.pre('save', function async (next) {
+Section.pre('save', function async(next) {
     const Section = this;
     Section.lastActiveAt = new Date();
     next();
