@@ -68,9 +68,11 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         for (let i = 0; i < req.body.length; i++) {
             for (let j = 0; j < project.sections.length; j++) {
                 if (
-                    (req.body[i].targetEmail === project.sections[j].targetEmail
-                        ||
-                        project.sections[j].targetEmail === "")
+                    // (
+                    req.body[i].targetEmail === project.sections[j].targetEmail
+                    //     ||
+                    //     project.sections[j].targetEmail === "" //! try remove comments and participant will be update
+                    // )
                     &&
                     req.body[i].secondStart === project.sections[j].secondStart
                     &&
