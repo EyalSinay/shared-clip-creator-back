@@ -68,11 +68,11 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         for (let i = 0; i < req.body.length; i++) {
             for (let j = 0; j < project.sections.length; j++) {
                 if (
-                    // (
-                    req.body[i].targetEmail === project.sections[j].targetEmail
-                    //     ||
-                    //     project.sections[j].targetEmail === "" //! try remove comments and participant will be update
-                    // )
+                    (
+                        req.body[i].targetEmail === project.sections[j].targetEmail
+                        ||
+                        project.sections[j].targetEmail === ""
+                    )
                     &&
                     req.body[i].secondStart === project.sections[j].secondStart
                     &&
@@ -97,10 +97,8 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         project.sections = req.body;
         for (let sec of project.sections) {
             const secId = sec._id;
-
             if (idsDoseNotChanged.some(id => id === secId)) {
                 const preSec = preSections.find(sec => sec._id === secId);
-
                 sec.videoTrack = preSec.videoTrack;
                 sec.image = preSec.image;
                 sec.hasFile = preSec.videoTrack || preSec.image ? true : false;
@@ -134,7 +132,15 @@ router.post('/users/projects/:id/sections', auth, async (req, res) => {
         for (let sec of req.body) {
             const secId = sec._id;
 
-            if (!idsDoseNotChanged.some(id => id === secId)) {
+            let onlyMailChangeFromEmptyStr = false;
+            const matchingPreSec = preSections.find(preSec => preSec._id === secId)
+            if(matchingPreSec && idsDoseNotChanged.some(id => id === secId)){
+                if(matchingPreSec.targetEmail === "" && sec.targetEmail !== ""){
+                    onlyMailChangeFromEmptyStr = true;
+                }
+            }
+
+            if (!idsDoseNotChanged.some(id => id === secId) || onlyMailChangeFromEmptyStr) {
                 const projectOwner = await project.populate('owner');
                 await User.findOneAndUpdate({ email: sec.targetEmail }, {
                     $push: {
