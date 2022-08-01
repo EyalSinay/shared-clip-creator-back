@@ -230,12 +230,13 @@ router.get('/users/projects/:id/concatVideo', async (req, res) => {
             return res.status(404).send()
         }
         const userAudioTrack = downloadFromS3(project.audioTrack);
+        const volumeAudioTrack = project.volumeAudioTrack;
         const files = [];
         for (let sec of project.sections) {
             const duration = Math.round((sec.secondEnd - sec.secondStart) * 10) / 10;
             if (sec.videoTrack) {
                 const sectionVideoTrack = downloadFromS3(sec.videoTrack);
-                files.push({ type: "video", file: sectionVideoTrack, duration });
+                files.push({ type: "video", file: sectionVideoTrack, duration, volume: sec.volumeVideoTrack });
             } else if (sec.image) {
                 const sectionImage = downloadFromS3(sec.image);
                 files.push({ type: "image", file: sectionImage, duration });
@@ -243,7 +244,7 @@ router.get('/users/projects/:id/concatVideo', async (req, res) => {
                 files.push({ type: "no-file", duration });
             }
         }
-        const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, files, project.allowed, project._id, project.scaleVideo);
+        const [clipStream, allPaths] = await getConcatVideo(userAudioTrack, files, project.allowed, project._id, project.scaleVideo, volumeAudioTrack);
 
         // ! Why sometimes after this request end, i send a delete request to delete sec-video and i get an error from aws-sdk???
         // ! How to ensure that in any case, even if the user canceled the request, the files will be deleted???
@@ -256,7 +257,6 @@ router.get('/users/projects/:id/concatVideo', async (req, res) => {
 
 
     } catch (e) {
-        removeAllAtomsFiles(allPaths);
         res.status(500).send();
     }
 });

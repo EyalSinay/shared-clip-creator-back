@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@jimp/plugin-contain": "^0.16.1",
+    "@jimp/plugin-rotate": "^0.16.1",
     "aws-sdk": "^2.1166.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
