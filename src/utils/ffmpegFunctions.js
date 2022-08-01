@@ -4,7 +4,9 @@ const Jimp = require('jimp');
 const { rootPath } = require('./global-vars')
 
 // ! Create abort stations (maybe by push the paths to deleteArr every step, and on error delete them)
+// ! maybe by use Promise.
 // ? Maybe it's possible already in the first part, to get the files by stream input, resize them, and export them to a ts files!
+// ! short the code!
 const getConcatVideo = async (audio, files, allowed, projectId, scale, volumeAudioTrack) => {
     console.log("Starting to create clip for: " + projectId);
 
